@@ -97,3 +97,5 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 
 ---
 
+## License
+Pablo Reyes
