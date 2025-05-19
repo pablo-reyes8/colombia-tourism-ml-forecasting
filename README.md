@@ -80,8 +80,8 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 - **Base Final1**
   It is the final database that is reached after running scripts 1-3, in this way the graphics and modeling can be done without running everything.
 
-- **Bases Necesarias**
-  A folder with all the databases needed to create the final panel
+- **Release Databases**
+  In the *Realeses* section you can find the .rar file with all the bases to run scripts 1-3
 
 ---
 
