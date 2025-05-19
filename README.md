@@ -83,6 +83,9 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 - **Release Databases**
   In the *Realeses* section you can find the .rar file with all the bases to run scripts 1-3
 
+- **Demo Images**
+  In this folder you can find some demonstration images of how the urban/rural area of ​​cities was calculated based on satellite images.
+
 ---
 
 ## Key Takeaways
