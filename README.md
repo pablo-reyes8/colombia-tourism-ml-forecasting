@@ -97,5 +97,12 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please open issues or submit pull requests at  
+https://github.com/pablo-reyes8
+
 ## License
-Pablo Reyes
+
+This project is licensed under the Apache License 2.0.  
+
