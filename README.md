@@ -1,5 +1,13 @@
 # Colombia Tourism Forecasting
 
+
+![Repo size](https://img.shields.io/github/repo-size/pablo-reyes8/colombia-tourism-ml-forecasting)
+![Last commit](https://img.shields.io/github/last-commit/pablo-reyes8/colombia-tourism-ml-forecasting)
+![Open issues](https://img.shields.io/github/issues/pablo-reyes8/colombia-tourism-ml-forecasting)
+![Forks](https://img.shields.io/github/forks/pablo-reyes8/colombia-tourism-ml-forecasting?style=social)
+![Stars](https://img.shields.io/github/stars/pablo-reyes8/colombia-tourism-ml-forecasting?style=social)
+
+
 A comprehensive, end‐to‐end forecasting project that leverages both machine‐learning and econometric methods to predict monthly foreign tourist arrivals across 81 Colombian cities from 2018 to 2023. We begin by assembling a high‐dimensional panel dataset, merging:
 
 - **Remote Sensing Features**: Land‐cover metrics (urban, rural, water areas) and key indices (NDVI, NDWI) extracted from Sentinel-2 imagery via Google Earth Engine.  
