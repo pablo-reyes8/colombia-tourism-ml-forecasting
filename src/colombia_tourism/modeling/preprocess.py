@@ -93,7 +93,7 @@ def make_preprocessor(
         transformers.append(
             (
                 "cat",
-                OneHotEncoder(handle_unknown="ignore"),
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
                 categorical_features,
             )
         )

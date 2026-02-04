@@ -114,3 +114,26 @@ https://github.com/pablo-reyes8
 
 This project is licensed under the Apache License 2.0.  
 
+---
+
+## API, App, and MLflow
+
+### Local setup
+1. Install dependencies: `pip install -r requirements.txt`
+2. Add sources to path: `export PYTHONPATH=src`
+
+### Train + track a model
+1. Train and log with MLflow: `python scripts/train.py --model xgboost`
+2. (Optional) open MLflow UI: `mlflow ui`
+
+### Run the API
+1. `uvicorn colombia_tourism.api.server:app --host 0.0.0.0 --port 8000`
+
+### Run the Streamlit app
+1. `streamlit run apps/streamlit_app.py`
+
+### Docker
+1. Build: `docker build -t colombia-tourism .`
+2. Run API: `docker run -p 8000:8000 colombia-tourism`
+3. Or run both API + app: `docker-compose up --build`
+

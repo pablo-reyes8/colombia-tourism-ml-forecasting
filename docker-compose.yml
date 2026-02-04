@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: colombia-tourism-api
+    environment:
+      - MLFLOW_TRACKING_URI=file:/app/mlruns
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mlruns:/app/mlruns
+
+  app:
+    build: .
+    container_name: colombia-tourism-app
+    environment:
+      - MLFLOW_TRACKING_URI=file:/app/mlruns
+    command: >
+      bash -lc "streamlit run apps/streamlit_app.py --server.address 0.0.0.0 --server.port 8501"
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./mlruns:/app/mlruns
+    depends_on:
+      - api

@@ -50,9 +50,9 @@ def parse_run_id(model_uri: str) -> str | None:
 
 def download_run_artifact(run_id: str, artifact_path: str) -> Path:
     client = MlflowClient()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        local_path = client.download_artifacts(run_id, artifact_path, dst_path=tmpdir)
-        return Path(local_path)
+    tmpdir = tempfile.mkdtemp(prefix="mlflow_artifact_")
+    local_path = client.download_artifacts(run_id, artifact_path, dst_path=tmpdir)
+    return Path(local_path)
 
 
 def load_feature_names_from_run(run_id: str) -> list[str] | None:
