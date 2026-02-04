@@ -56,18 +56,21 @@ def download_run_artifact(run_id: str, artifact_path: str) -> Path:
 
 
 def load_feature_names_from_run(run_id: str) -> list[str] | None:
-    try:
-        path = download_run_artifact(run_id, "metadata/feature_names.json")
-    except Exception:
-        return None
+    for artifact in ["metadata/feature_names.json", "model/feature_names.json"]:
+        try:
+            path = download_run_artifact(run_id, artifact)
+        except Exception:
+            continue
 
-    try:
-        payload = json.loads(path.read_text())
-        if isinstance(payload, list):
-            return payload
-        return payload.get("feature_names")
-    except Exception:
-        return None
+        try:
+            payload = json.loads(path.read_text())
+            if isinstance(payload, list):
+                return payload
+            return payload.get("feature_names")
+        except Exception:
+            continue
+
+    return None
 
 
 def load_feature_names(model_uri: str) -> list[str] | None:

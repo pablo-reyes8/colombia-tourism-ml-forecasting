@@ -91,8 +91,116 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 - **Release Databases**
   In the *Realeses* section you can find the .rar file with all the bases to run scripts 1-3
 
+- **apps/streamlit_app.py**
+  Streamlit interface for predictions and SHAP explanations.
+
+- **scripts/train.py**
+  CLI training with MLflow logging.
+
+- **scripts/infer.py**
+  CLI batch inference on CSVs.
+
+- **scripts/interpret.py**
+  CLI SHAP interpretation and plots.
+
 - **Demo Images**
   In this folder you can find some demonstration images of how the urban/rural area of ​​cities was calculated based on satellite images.
+
+---
+
+## Modular Code (src/)
+
+- `src/colombia_tourism/preprocessing` data cleaning utilities.
+- `src/colombia_tourism/features` feature engineering helpers.
+- `src/colombia_tourism/modeling` pipelines, PCA, polynomial features, model factory.
+- `src/colombia_tourism/interpretation` SHAP, PDP, permutation importance.
+- `src/colombia_tourism/api` FastAPI service.
+- `src/colombia_tourism/inference.py` model loading + feature alignment.
+- `src/colombia_tourism/mlflow_utils.py` experiment tracking + dataset logging.
+
+---
+
+## Local Setup
+
+1. Install dependencies: `pip install -r requirements.txt`
+2. Add sources to path: `export PYTHONPATH=src`
+
+---
+
+## CLI Workflows
+
+### Train + Track (MLflow)
+1. `python scripts/train.py --model xgboost`
+2. `python scripts/train.py --model lightgbm --poly-degree 2`
+3. `python scripts/train.py --model catboost --pca-components 10`
+
+This logs:
+- Model artifacts
+- Metrics (R2, MAE, MSE, RMSE, CV)
+- Feature list + target name
+- Optional data sample (default enabled)
+
+### Inference (batch)
+1. `python scripts/infer.py --model-uri runs:/<RUN_ID>/model --input data.csv --output preds.csv`
+2. `python scripts/infer.py --model-uri path/to/model.joblib --input data.csv --output preds.csv --target "Nmero Extranjeros"`
+
+### Interpretation (SHAP)
+1. `python scripts/interpret.py --model-uri runs:/<RUN_ID>/model --input data.csv --output shap_summary.csv`
+2. `python scripts/interpret.py --model-uri runs:/<RUN_ID>/model --input data.csv --output shap_summary.csv --plot-dir outputs/shap`
+
+---
+
+## API
+
+Run:
+- `uvicorn colombia_tourism.api.server:app --host 0.0.0.0 --port 8000`
+
+Endpoints:
+- `GET /health`
+- `POST /predict` (JSON records)
+- `POST /predict-file` (CSV upload)
+- `POST /explain` (SHAP summary)
+
+---
+
+## Streamlit App
+
+Run:
+- `streamlit run apps/streamlit_app.py`
+
+The app lets you:
+- Upload a CSV
+- Load a trained model (MLflow, local, or upload)
+- Generate predictions
+- Generate SHAP explanations
+
+---
+
+## MLflow Tracking & Data Lineage
+
+Set tracking URI (local or remote):
+- `export MLFLOW_TRACKING_URI=file:./mlruns`
+
+The training CLI logs:
+- Full model pipeline
+- Feature list and target name
+- Dataset sample + fingerprint (for reproducibility)
+- Metrics and CV scores
+
+---
+
+## Deployment
+
+### Docker
+1. Build: `docker build -t colombia-tourism .`
+2. Run API: `docker run -p 8000:8000 colombia-tourism`
+
+### Docker Compose
+1. `docker-compose up --build`
+
+This runs:
+- API on port `8000`
+- Streamlit app on port `8501`
 
 ---
 
@@ -113,27 +221,4 @@ https://github.com/pablo-reyes8
 ## License
 
 This project is licensed under the Apache License 2.0.  
-
----
-
-## API, App, and MLflow
-
-### Local setup
-1. Install dependencies: `pip install -r requirements.txt`
-2. Add sources to path: `export PYTHONPATH=src`
-
-### Train + track a model
-1. Train and log with MLflow: `python scripts/train.py --model xgboost`
-2. (Optional) open MLflow UI: `mlflow ui`
-
-### Run the API
-1. `uvicorn colombia_tourism.api.server:app --host 0.0.0.0 --port 8000`
-
-### Run the Streamlit app
-1. `streamlit run apps/streamlit_app.py`
-
-### Docker
-1. Build: `docker build -t colombia-tourism .`
-2. Run API: `docker run -p 8000:8000 colombia-tourism`
-3. Or run both API + app: `docker-compose up --build`
 
