@@ -126,6 +126,9 @@ def main():
 
         log_feature_names(feature_list)
         log_target_name(args.target)
+        # also store inside model artifact for portability
+        log_feature_names(feature_list, artifact_path="model")
+        log_target_name(args.target, artifact_path="model")
 
         sample = X.head(50)
         signature = infer_signature(sample, pipeline.predict(sample))

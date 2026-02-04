@@ -63,9 +63,42 @@ def load_feature_names_from_run(run_id: str) -> list[str] | None:
 
     try:
         payload = json.loads(path.read_text())
+        if isinstance(payload, list):
+            return payload
         return payload.get("feature_names")
     except Exception:
         return None
+
+
+def load_feature_names(model_uri: str) -> list[str] | None:
+    run_id = parse_run_id(model_uri)
+    if run_id:
+        return load_feature_names_from_run(run_id)
+
+    path = Path(model_uri)
+    candidates = []
+    if path.is_dir():
+        candidates = [
+            path / "metadata" / "feature_names.json",
+            path / "feature_names.json",
+        ]
+    else:
+        candidates = [
+            path.with_suffix(".features.json"),
+            path.parent / "metadata" / "feature_names.json",
+            path.parent / "feature_names.json",
+        ]
+
+    for cand in candidates:
+        if cand.exists():
+            try:
+                payload = json.loads(cand.read_text())
+                if isinstance(payload, list):
+                    return payload
+                return payload.get("feature_names")
+            except Exception:
+                continue
+    return None
 
 
 def align_features(df: pd.DataFrame, feature_names: Iterable[str]):

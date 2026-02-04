@@ -12,9 +12,8 @@ import mlflow
 
 from colombia_tourism.inference import (
     align_features,
-    load_feature_names_from_run,
+    load_feature_names,
     load_model,
-    parse_run_id,
     predict_dataframe,
 )
 from colombia_tourism.interpretation.shap_utils import shap_summary
@@ -93,10 +92,9 @@ if st.button("Predecir"):
 
     missing = []
     extra = []
-    if run_id:
-        feature_names = load_feature_names_from_run(run_id)
-        if feature_names:
-            df, missing, extra = align_features(df, feature_names)
+    feature_names = load_feature_names(model_uri)
+    if feature_names:
+        df, missing, extra = align_features(df, feature_names)
 
     try:
         preds = predict_dataframe(model, df)

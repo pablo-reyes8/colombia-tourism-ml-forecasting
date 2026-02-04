@@ -11,9 +11,8 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 
 from colombia_tourism.inference import (
     align_features,
-    load_feature_names_from_run,
+    load_feature_names,
     load_model,
-    parse_run_id,
     predict_dataframe,
 )
 from colombia_tourism.interpretation import shap_summary
@@ -40,12 +39,10 @@ def _prepare_df(df: pd.DataFrame, target: Optional[str], model_uri: str):
     if target and target in df.columns:
         df = df.drop(columns=[target])
 
-    run_id = parse_run_id(model_uri)
-    if run_id:
-        feature_names = load_feature_names_from_run(run_id)
-        if feature_names:
-            df, missing, extra = align_features(df, feature_names)
-            return df, missing, extra
+    feature_names = load_feature_names(model_uri)
+    if feature_names:
+        df, missing, extra = align_features(df, feature_names)
+        return df, missing, extra
 
     return df, [], []
 
