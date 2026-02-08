@@ -1,0 +1,10 @@
+# Optional dependencies for full notebook-level preprocessing
+# (Sentinel-2 extraction, kriging interpolation, econometric comparisons)
+
+earthengine-api==0.1.397
+geopandas==0.14.4
+geopy==2.4.1
+linearmodels==5.4
+pykrige==1.7.1
+shapely==2.0.4
+statsmodels==0.14.2

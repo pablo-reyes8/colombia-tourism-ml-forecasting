@@ -14,12 +14,8 @@ from mlflow.models.signature import infer_signature
 from colombia_tourism.data import DEFAULT_FEATURES, DEFAULT_TARGET, load_base_final
 from colombia_tourism.mlflow_utils import log_dataset, log_feature_names, log_target_name, set_experiment
 from colombia_tourism.modeling import (
-    build_catboost,
-    build_keras_regressor,
-    build_lightgbm,
+    build_model,
     build_pipeline,
-    build_sklearn_model,
-    build_xgboost,
     fit_and_evaluate,
     make_preprocessor,
 )
@@ -32,22 +28,6 @@ def load_feature_list(path: str | None):
     if path.suffix.lower() in {".json"}:
         return json.loads(path.read_text())
     return [line.strip() for line in path.read_text().splitlines() if line.strip()]
-
-
-def build_model(name: str):
-    name = name.lower()
-    if name in {"linear", "ridge", "lasso", "elasticnet", "random_forest", "gradient_boosting"}:
-        return build_sklearn_model(name)
-    if name == "xgboost":
-        return build_xgboost()
-    if name == "lightgbm":
-        return build_lightgbm()
-    if name == "catboost":
-        return build_catboost()
-    if name == "keras":
-        return build_keras_regressor()
-    raise ValueError(f"Modelo no soportado: {name}")
-
 
 def main():
     parser = argparse.ArgumentParser()

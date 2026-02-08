@@ -111,8 +111,12 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 ## Modular Code (src/)
 
 - `src/colombia_tourism/preprocessing` data cleaning utilities.
-- `src/colombia_tourism/features` feature engineering helpers.
-- `src/colombia_tourism/modeling` pipelines, PCA, polynomial features, model factory.
+- `src/colombia_tourism/features` feature engineering helpers + `satellite.py` for Sentinel-2 / Earth Engine land-cover extraction.
+- `src/colombia_tourism/modeling` pipelines, PCA, polynomial features, model factory, plus:
+  - LOESS monthly decomposition helpers
+  - spatial kriging imputation
+  - KNN mixed-type imputation pipeline
+  - econometric comparison helpers (OLS / random effects)
 - `src/colombia_tourism/interpretation` SHAP, PDP, permutation importance.
 - `src/colombia_tourism/api` FastAPI service.
 - `src/colombia_tourism/inference.py` model loading + feature alignment.
@@ -123,7 +127,8 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 ## Local Setup
 
 1. Install dependencies: `pip install -r requirements.txt`
-2. Add sources to path: `export PYTHONPATH=src`
+2. (Optional, for full preprocessing + Sentinel-2 + kriging + econometrics) `pip install -r requirements-geospatial.txt`
+3. Add sources to path: `export PYTHONPATH=src`
 
 ---
 
