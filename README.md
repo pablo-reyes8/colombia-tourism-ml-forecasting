@@ -1,4 +1,4 @@
-# Colombia Tourism Forecasting
+# Colombia International Tourism Forecasting
 
 
 ![Repo size](https://img.shields.io/github/repo-size/pablo-reyes8/colombia-tourism-ml-forecasting)
