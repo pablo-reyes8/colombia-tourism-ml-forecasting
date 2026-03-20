@@ -93,17 +93,26 @@ def resolve_model_uri(
     raise ValueError("Either model_uri or registered_model_name must be provided")
 
 
+def _canonical_model_uri(model_uri: str) -> str:
+    if not model_uri.startswith("models:/"):
+        return model_uri
+    spec = model_uri.removeprefix("models:/")
+    if "@" not in spec:
+        return model_uri
+    name, alias = spec.split("@", 1)
+    _, MlflowClient = _require_mlflow()
+    client = MlflowClient()
+    version_info = client.get_model_version_by_alias(name, alias)
+    return f"models:/{name}/{version_info.version}"
+
+
 @lru_cache(maxsize=16)
-def load_model(model_uri: str):
-    """Load a model from MLflow or a local serialized artifact."""
-    if model_uri is None:
-        raise ValueError("model_uri is required")
-
-    if model_uri.startswith("runs:") or model_uri.startswith("models:"):
+def _load_model_cached(resolved_uri: str):
+    if resolved_uri.startswith("runs:") or resolved_uri.startswith("models:"):
         mlflow, _ = _require_mlflow()
-        return mlflow.pyfunc.load_model(model_uri)
+        return mlflow.pyfunc.load_model(resolved_uri)
 
-    path = Path(model_uri)
+    path = Path(resolved_uri)
     if _is_mlflow_dir(path):
         mlflow, _ = _require_mlflow()
         return mlflow.pyfunc.load_model(str(path))
@@ -112,6 +121,14 @@ def load_model(model_uri: str):
         return joblib.load(path)
 
     raise ValueError("Unsupported model_uri. Use MLflow URI or .pkl/.joblib path.")
+
+
+def load_model(model_uri: str):
+    """Load a model from MLflow or a local serialized artifact."""
+    if model_uri is None:
+        raise ValueError("model_uri is required")
+    resolved_uri = _canonical_model_uri(model_uri)
+    return _load_model_cached(resolved_uri)
 
 
 def predict_dataframe(model, df: pd.DataFrame):
@@ -336,13 +353,14 @@ def resolve_model_bundle(
     artifact_path: str = "model",
 ) -> ResolvedModelBundle:
     """Resolve a model reference into a serving bundle with metadata."""
-    resolved_uri = resolve_model_uri(
+    requested_uri = resolve_model_uri(
         model_uri=model_uri,
         registered_model_name=registered_model_name,
         model_alias=model_alias,
         model_version=model_version,
         artifact_path=artifact_path,
     )
+    resolved_uri = _canonical_model_uri(requested_uri)
     metadata = load_model_metadata(resolved_uri)
     feature_names = load_feature_names(resolved_uri) or []
     target_name = load_target_name(resolved_uri)
@@ -351,8 +369,8 @@ def resolve_model_bundle(
         resolved_uri
     )
     registry_alias = None
-    if resolved_uri.startswith("models:/"):
-        spec = resolved_uri.removeprefix("models:/")
+    if requested_uri.startswith("models:/"):
+        spec = requested_uri.removeprefix("models:/")
         if "@" in spec:
             _, registry_alias = spec.split("@", 1)
     source = "mlflow_registry" if resolved_uri.startswith("models:/") else "mlflow_run"

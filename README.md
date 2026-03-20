@@ -106,6 +106,12 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 - **scripts/check_drift.py**
   CLI drift monitoring step that compares a current dataset against a packaged baseline and can trigger retraining.
 
+- **scripts/promote_data_package.py**
+  Promotes a packaged current dataset into the production baseline used by drift monitoring and retraining.
+
+- **scripts/api_smoke_test.py**
+  Sends a real HTTP request to the FastAPI service to validate that the deployed champion model is serving predictions correctly.
+
 - **scripts/benchmark.py**
   CLI model comparison on a shared split.
 
@@ -120,6 +126,12 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 
 - **Demo Images**
   In this folder you can find some demonstration images of how the urban/rural area of ​​cities was calculated based on satellite images.
+
+- **dags/colombia_tourism_mlops_dag.py**
+  Airflow DAG orchestrating dataset packaging, bootstrap training, drift detection, conditional retraining, batch inference and API smoke testing.
+
+- **docker/airflow/Dockerfile**
+  Custom Airflow image based on the official Airflow runtime, with project dependencies and DAG code baked in.
 
 ---
 
@@ -212,6 +224,9 @@ The drift monitor exports:
 - `retrain_decision.json`
 - `current_package/` with the regenerated dataset package for the candidate data
 
+### API Smoke Test
+1. `python scripts/api_smoke_test.py --api-base-url http://localhost:8000 --input artifacts/data/base_final_package/processed/modeling_dataset.csv --target "Nmero Extranjeros"`
+
 ### Inference (batch)
 1. `python scripts/infer.py --model-uri runs:/<RUN_ID>/model --input data.csv --output preds.csv`
 2. `python scripts/infer.py --model-uri models:/colombia-tourism-forecasting@champion --input data.csv --output preds.csv`
@@ -282,6 +297,35 @@ Example prediction payload:
 
 ---
 
+## Airflow Orchestration
+
+The repository now includes an end-to-end Airflow DAG in `dags/colombia_tourism_mlops_dag.py`.
+
+Pipeline stages inside the DAG:
+- package current data into `artifacts/data/current_candidate`
+- bootstrap train and promote the baseline if no production reference exists
+- compare current data against `artifacts/data/production_baseline`
+- retrain and promote the baseline if drift thresholds are exceeded
+- run batch inference with the `champion` model
+- call the FastAPI service with a real prediction request as a serving smoke test
+
+Main DAG:
+- `colombia_tourism_end_to_end_mlops`
+
+Airflow services in Docker Compose:
+- `airflow-init`
+- `airflow-apiserver`
+- `airflow-scheduler`
+- `airflow-dag-processor`
+- `airflow-triggerer`
+
+Run the platform:
+1. `docker compose up --build mlflow api app airflow-init airflow-apiserver airflow-scheduler airflow-dag-processor airflow-triggerer`
+2. Open Airflow at `http://localhost:8080`
+3. Trigger `colombia_tourism_end_to_end_mlops`
+
+---
+
 ## Streamlit App
 
 Run:
@@ -335,14 +379,17 @@ Examples:
 1. Core serving stack: `docker compose up --build mlflow api app`
 2. Data + training jobs: `docker compose --profile jobs up --build data_pipeline trainer`
 3. Drift monitoring: `docker compose --profile monitoring up --build drift_monitor`
+4. Full orchestration with Airflow: `docker compose up --build mlflow api app airflow-init airflow-apiserver airflow-scheduler airflow-dag-processor airflow-triggerer`
 
 Compose services:
 - `mlflow` on port `5000`
 - `api` on port `8000`
 - `app` on port `8501`
+- `airflow-apiserver` on port `8080`
 - `data_pipeline` for dataset packaging jobs
 - `trainer` for model-training jobs
 - `drift_monitor` for scheduled drift checks
+- `postgres` for Airflow metadata
 
 ---
 
@@ -363,5 +410,4 @@ https://github.com/pablo-reyes8
 ## License
 
 This project is licensed under the Apache License 2.0.  
-
 

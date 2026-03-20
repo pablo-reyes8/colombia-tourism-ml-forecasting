@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import os
 from dataclasses import asdict
-from functools import lru_cache
 from typing import Any
 
 import pandas as pd
@@ -60,7 +59,6 @@ class PredictionService:
             "artifact_path": model.get("artifact_path") or self.default_artifact_path,
         }
 
-    @lru_cache(maxsize=16)
     def _load_cached_bundle(
         self,
         model_uri: str | None,
