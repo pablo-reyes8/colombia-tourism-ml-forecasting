@@ -31,6 +31,13 @@ from .evaluation import (
     cross_validate_regressor,
     fit_and_evaluate,
 )
+from .benchmark import (
+    benchmark_all,
+    benchmark_model_names,
+    benchmark_ols_specs,
+    benchmark_random_effects_specs,
+    benchmark_regressors,
+)
 from .selection import tune_model
 
 __all__ = [
@@ -50,6 +57,11 @@ __all__ = [
     "evaluate_regressor",
     "cross_validate_regressor",
     "fit_and_evaluate",
+    "benchmark_all",
+    "benchmark_model_names",
+    "benchmark_ols_specs",
+    "benchmark_random_effects_specs",
+    "benchmark_regressors",
     "tune_model",
     "build_model",
     "build_sklearn_model",
