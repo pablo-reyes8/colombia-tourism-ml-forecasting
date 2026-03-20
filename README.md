@@ -97,6 +97,9 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 - **scripts/train.py**
   CLI training/orchestration with MLflow tracking, optional hyperparameter search, model registration and champion promotion.
 
+- **scripts/select_features.py**
+  CLI feature-selection suite over `Base Final1.csv` with polynomial Lasso, adaptive Lasso, sparse group Lasso, forward/backward elimination, PCA loadings and PLS-VIP consensus ranking.
+
 - **scripts/benchmark.py**
   CLI model comparison on a shared split.
 
@@ -123,6 +126,7 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
   - spatial kriging imputation
   - KNN mixed-type imputation pipeline
   - econometric comparison helpers (OLS / random effects)
+  - feature-selection suite (Lasso, adaptive Lasso, sparse group Lasso, stepwise selection, PCA, PLS)
 - `src/colombia_tourism/interpretation` SHAP, PDP, permutation importance.
 - `src/colombia_tourism/api` professional FastAPI service with versioned endpoints, serving schemas and a dedicated prediction service layer.
 - `src/colombia_tourism/inference.py` model resolution, MLflow registry support, metadata loading and feature alignment.
@@ -147,11 +151,23 @@ Example:
 
 ## CLI Workflows
 
+### Feature Selection
+1. `python scripts/select_features.py --data "Data/Base Final1.csv" --output-dir outputs/feature_selection`
+2. `python scripts/select_features.py --data "Data/Base Final1.csv" --engineer-features --max-features 20 --consensus-min-votes 2`
+3. `python scripts/train.py --model xgboost --features outputs/feature_selection/consensus_features.txt --registered-model-name colombia-tourism-forecasting`
+
+The selector exports:
+- `feature_selection_summary.csv` with method-level results
+- `feature_selection_rankings.csv` with per-method rankings in original feature space
+- `feature_selection_consensus.csv` with votes and normalized consensus scores
+- `consensus_features.txt` with the top recommended variables ready to pass into `scripts/train.py --features`
+
 ### Train + Register (MLflow)
 1. `python scripts/train.py --model xgboost --registered-model-name colombia-tourism-forecasting`
 2. `python scripts/train.py --model xgboost --tune --n-iter 50 --registered-model-name colombia-tourism-forecasting`
 3. `python scripts/train.py --candidate-models xgboost random_forest ridge --registered-model-name colombia-tourism-forecasting`
 4. `python scripts/train.py --model xgboost --model-params '{"preset":"notebook_best"}' --registered-model-name colombia-tourism-forecasting`
+5. `python scripts/train.py --model xgboost --features outputs/feature_selection/consensus_features.txt --registered-model-name colombia-tourism-forecasting`
 
 The MLflow wrapper now handles:
 - Run-level metrics and params
