@@ -97,8 +97,14 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 - **scripts/train.py**
   CLI training/orchestration with MLflow tracking, optional hyperparameter search, model registration and champion promotion.
 
+- **scripts/package_data.py**
+  CLI dataset packaging step that materializes the data contract: raw snapshot, processed modeling dataset, feature list, schema, profile and manifest.
+
 - **scripts/select_features.py**
   CLI feature-selection suite over `Base Final1.csv` with polynomial Lasso, adaptive Lasso, sparse group Lasso, forward/backward elimination, PCA loadings and PLS-VIP consensus ranking.
+
+- **scripts/check_drift.py**
+  CLI drift monitoring step that compares a current dataset against a packaged baseline and can trigger retraining.
 
 - **scripts/benchmark.py**
   CLI model comparison on a shared split.
@@ -131,6 +137,7 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 - `src/colombia_tourism/api` professional FastAPI service with versioned endpoints, serving schemas and a dedicated prediction service layer.
 - `src/colombia_tourism/inference.py` model resolution, MLflow registry support, metadata loading and feature alignment.
 - `src/colombia_tourism/mlflow_utils.py` MLflow orchestration wrapper for training, tuning, version registration and champion alias promotion.
+- `src/colombia_tourism/mlops` data contracts, dataset packaging, drift monitoring and scheduler-friendly orchestration helpers.
 
 ---
 
@@ -151,6 +158,20 @@ Example:
 
 ## CLI Workflows
 
+### Data Packaging
+1. `python scripts/package_data.py --data "Data/Base Final1.csv" --output-dir artifacts/data/base_final_package`
+2. `python scripts/package_data.py --data "Data/Base Final1.csv" --engineer-features --output-dir artifacts/data/base_final_engineered`
+
+Each package contains:
+- `raw/base_final_snapshot.csv`
+- `processed/modeling_dataset.csv`
+- `metadata/manifest.json`
+- `metadata/feature_list.txt`
+- `metadata/schema.json`
+- `metadata/profile.json`
+- `metadata/feature_manifest.json`
+- `metadata/ingestion_summary.md`
+
 ### Feature Selection
 1. `python scripts/select_features.py --data "Data/Base Final1.csv" --output-dir outputs/feature_selection`
 2. `python scripts/select_features.py --data "Data/Base Final1.csv" --engineer-features --max-features 20 --consensus-min-votes 2`
@@ -168,14 +189,28 @@ The selector exports:
 3. `python scripts/train.py --candidate-models xgboost random_forest ridge --registered-model-name colombia-tourism-forecasting`
 4. `python scripts/train.py --model xgboost --model-params '{"preset":"notebook_best"}' --registered-model-name colombia-tourism-forecasting`
 5. `python scripts/train.py --model xgboost --features outputs/feature_selection/consensus_features.txt --registered-model-name colombia-tourism-forecasting`
+6. `python scripts/train.py --data-package-dir artifacts/data/base_final_package --model xgboost --registered-model-name colombia-tourism-forecasting`
 
 The MLflow wrapper now handles:
 - Run-level metrics and params
 - Optional hyperparameter search
 - Dataset snapshot + fingerprint
 - Feature list, target name and serving metadata
+- Packaged data contract artifacts when training from `--data-package-dir`
 - Model registration in MLflow Model Registry
 - Promotion of the best version to the `champion` alias
+
+### Drift Monitoring
+1. `python scripts/check_drift.py --reference-dir artifacts/data/base_final_package --current-data "Data/Base Final1.csv" --output-dir artifacts/drift/latest`
+2. `python scripts/check_drift.py --reference-dir artifacts/data/base_final_package --current-data new_data.csv --output-dir artifacts/drift/latest --retrain-on-drift`
+3. `python scripts/check_drift.py --reference-dir artifacts/data/base_final_package --current-data new_data.csv --output-dir artifacts/drift/latest --fail-on-drift`
+
+The drift monitor exports:
+- `drift_feature_report.csv`
+- `drift_summary.json`
+- `drift_report.md`
+- `retrain_decision.json`
+- `current_package/` with the regenerated dataset package for the candidate data
 
 ### Inference (batch)
 1. `python scripts/infer.py --model-uri runs:/<RUN_ID>/model --input data.csv --output preds.csv`
@@ -283,15 +318,31 @@ The training wrapper logs:
 ## Deployment
 
 ### Docker
-1. Build: `docker build -t colombia-tourism .`
-2. Run API: `docker run -p 8000:8000 colombia-tourism`
+This repository now uses one multi-stage `Dockerfile` with dedicated targets for:
+- `mlflow-server`
+- `data-pipeline`
+- `trainer`
+- `drift-monitor`
+- `api-server`
+- `streamlit-app`
+
+Examples:
+- `docker build --target api-server -t colombia-tourism-api .`
+- `docker build --target trainer -t colombia-tourism-trainer .`
+- `docker build --target drift-monitor -t colombia-tourism-drift .`
 
 ### Docker Compose
-1. `docker-compose up --build`
+1. Core serving stack: `docker compose up --build mlflow api app`
+2. Data + training jobs: `docker compose --profile jobs up --build data_pipeline trainer`
+3. Drift monitoring: `docker compose --profile monitoring up --build drift_monitor`
 
-This runs:
-- API on port `8000`
-- Streamlit app on port `8501`
+Compose services:
+- `mlflow` on port `5000`
+- `api` on port `8000`
+- `app` on port `8501`
+- `data_pipeline` for dataset packaging jobs
+- `trainer` for model-training jobs
+- `drift_monitor` for scheduled drift checks
 
 ---
 
@@ -312,4 +363,5 @@ https://github.com/pablo-reyes8
 ## License
 
 This project is licensed under the Apache License 2.0.  
+
 

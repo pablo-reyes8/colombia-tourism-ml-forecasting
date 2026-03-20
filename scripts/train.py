@@ -7,16 +7,13 @@ import json
 from pathlib import Path
 
 from colombia_tourism.data import DEFAULT_FEATURES, DEFAULT_TARGET, load_base_final
+from colombia_tourism.mlops import (
+    load_dataset_package_manifest,
+    load_feature_list,
+    load_packaged_feature_names,
+    load_packaged_modeling_dataset,
+)
 from colombia_tourism.mlflow_utils import MLflowTrainingOrchestrator
-
-
-def load_feature_list(path: str | None):
-    if not path:
-        return None
-    path = Path(path)
-    if path.suffix.lower() in {".json"}:
-        return json.loads(path.read_text(encoding="utf-8"))
-    return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def load_model_params(payload: str | None) -> dict:
@@ -25,9 +22,33 @@ def load_model_params(payload: str | None) -> dict:
     return json.loads(payload)
 
 
+def load_training_frame(args):
+    if args.data_package_dir:
+        manifest = load_dataset_package_manifest(args.data_package_dir)
+        df = load_packaged_modeling_dataset(args.data_package_dir)
+        if args.features:
+            feature_list = load_feature_list(args.features)
+        else:
+            feature_list = load_packaged_feature_names(args.data_package_dir)
+        target = manifest.get("target", args.target)
+        dataset_artifact_dir = args.data_package_dir
+        return df, target, feature_list, dataset_artifact_dir
+
+    df = load_base_final(args.data)
+    feature_list = load_feature_list(args.features)
+    if feature_list is None:
+        feature_list = [feature for feature in DEFAULT_FEATURES if feature in df.columns]
+    return df, args.target, feature_list, None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train and register models with MLflow.")
     parser.add_argument("--data", default=str(Path("Data") / "Base Final1.csv"))
+    parser.add_argument(
+        "--data-package-dir",
+        default=None,
+        help="Path to a packaged dataset directory created by scripts/package_data.py",
+    )
     parser.add_argument("--model", default="xgboost")
     parser.add_argument("--candidate-models", nargs="+", default=None)
     parser.add_argument("--target", default=DEFAULT_TARGET)
@@ -56,13 +77,9 @@ def main():
     parser.add_argument("--model-params", default=None, help="JSON string with model-specific parameters")
     args = parser.parse_args()
 
-    df = load_base_final(args.data)
-    if args.target not in df.columns:
-        raise ValueError(f"Target '{args.target}' not in dataframe")
-
-    feature_list = load_feature_list(args.features)
-    if feature_list is None:
-        feature_list = [feature for feature in DEFAULT_FEATURES if feature in df.columns]
+    df, target, feature_list, dataset_artifact_dir = load_training_frame(args)
+    if target not in df.columns:
+        raise ValueError(f"Target '{target}' not in dataframe")
 
     model_params = load_model_params(args.model_params)
     candidate_models = args.candidate_models or [args.model]
@@ -77,7 +94,7 @@ def main():
 
     best_result, summary = orchestrator.train_sequence(
         df=df,
-        target=args.target,
+        target=target,
         feature_names=feature_list,
         model_names=candidate_models,
         run_name=candidate_models[0] if len(candidate_models) == 1 else "model-selection-sequence",
@@ -97,6 +114,7 @@ def main():
         n_iter=args.n_iter,
         search_scoring=args.search_scoring,
         model_params=model_params,
+        dataset_artifact_dir=dataset_artifact_dir,
     )
 
     print("Best model:")

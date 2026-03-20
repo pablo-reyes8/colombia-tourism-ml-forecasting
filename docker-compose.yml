@@ -1,26 +1,129 @@
 version: "3.9"
 
 services:
-  api:
-    build: .
-    container_name: colombia-tourism-api
+  mlflow:
+    build:
+      context: .
+      target: mlflow-server
+    container_name: colombia-tourism-mlflow
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/app/mlruns
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  data_pipeline:
+    build:
+      context: .
+      target: data-pipeline
+    container_name: colombia-tourism-data-pipeline
+    profiles: ["jobs"]
+    command:
+      - python
+      - scripts/package_data.py
+      - --data
+      - Data/Base Final1.csv
+      - --output-dir
+      - artifacts/data/base_final_package
+    volumes:
+      - ./Data:/app/Data:ro
+      - ./artifacts:/app/artifacts
+
+  trainer:
+    build:
+      context: .
+      target: trainer
+    container_name: colombia-tourism-trainer
+    profiles: ["jobs"]
+    depends_on:
+      mlflow:
+        condition: service_healthy
     environment:
-      - MLFLOW_TRACKING_URI=file:/app/mlruns
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command:
+      - python
+      - scripts/train.py
+      - --data-package-dir
+      - artifacts/data/base_final_package
+      - --model
+      - xgboost
+      - --registered-model-name
+      - colombia-tourism-forecasting
+    volumes:
+      - ./Data:/app/Data:ro
+      - ./artifacts:/app/artifacts
+      - ./mlruns:/app/mlruns
+
+  drift_monitor:
+    build:
+      context: .
+      target: drift-monitor
+    container_name: colombia-tourism-drift-monitor
+    profiles: ["monitoring"]
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command:
+      - python
+      - scripts/check_drift.py
+      - --reference-dir
+      - artifacts/data/base_final_package
+      - --current-data
+      - Data/Base Final1.csv
+      - --output-dir
+      - artifacts/drift/latest
+      - --retrain-on-drift
+    volumes:
+      - ./Data:/app/Data:ro
+      - ./artifacts:/app/artifacts
+      - ./mlruns:/app/mlruns
+
+  api:
+    build:
+      context: .
+      target: api-server
+    container_name: colombia-tourism-api
+    restart: unless-stopped
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - CTF_REGISTERED_MODEL_NAME=colombia-tourism-forecasting
+      - CTF_MODEL_ALIAS=champion
     ports:
       - "8000:8000"
     volumes:
       - ./mlruns:/app/mlruns
+      - ./artifacts:/app/artifacts
+      - ./Data:/app/Data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
 
   app:
-    build: .
+    build:
+      context: .
+      target: streamlit-app
     container_name: colombia-tourism-app
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
     environment:
-      - MLFLOW_TRACKING_URI=file:/app/mlruns
-    command: >
-      bash -lc "streamlit run apps/streamlit_app.py --server.address 0.0.0.0 --server.port 8501"
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     ports:
       - "8501:8501"
     volumes:
       - ./mlruns:/app/mlruns
-    depends_on:
-      - api
+      - ./artifacts:/app/artifacts
+      - ./Data:/app/Data:ro

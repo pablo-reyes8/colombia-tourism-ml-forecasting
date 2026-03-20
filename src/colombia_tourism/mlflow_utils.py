@@ -71,6 +71,14 @@ def log_model_metadata(
     log_json_artifact(dict(metadata), "model_metadata.json", artifact_path=artifact_path)
 
 
+def log_artifact_directory(
+    directory: str | Path,
+    *,
+    artifact_path: str = "data_contract",
+) -> None:
+    mlflow.log_artifacts(str(directory), artifact_path=artifact_path)
+
+
 def _fingerprint_df(df: pd.DataFrame) -> str:
     data_bytes = df.head(1000).to_csv(index=False).encode("utf-8")
     return hashlib.sha256(data_bytes).hexdigest()
@@ -251,6 +259,7 @@ class MLflowTrainingOrchestrator:
         param_distributions: Mapping[str, Any] | None = None,
         n_iter: int = 30,
         search_scoring: str = "r2",
+        dataset_artifact_dir: str | Path | None = None,
     ) -> TrainingResult:
         feature_names = list(feature_names)
         model_params = dict(model_params or {})
@@ -373,6 +382,23 @@ class MLflowTrainingOrchestrator:
 
             if log_data_flag:
                 log_dataset(df, sample_size=data_sample)
+
+            if dataset_artifact_dir:
+                log_artifact_directory(dataset_artifact_dir, artifact_path="data_contract")
+                manifest_path = Path(dataset_artifact_dir) / "metadata" / "manifest.json"
+                if manifest_path.exists():
+                    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    mlflow.log_params(
+                        _flatten_for_params(
+                            "data_contract",
+                            {
+                                "dataset_name": manifest_payload.get("dataset_name"),
+                                "feature_count": manifest_payload.get("feature_count"),
+                                "raw_fingerprint": manifest_payload.get("raw_fingerprint"),
+                                "processed_fingerprint": manifest_payload.get("processed_fingerprint"),
+                            },
+                        )
+                    )
 
             log_feature_names(feature_names)
             log_target_name(target)
