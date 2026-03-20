@@ -95,7 +95,13 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
   Streamlit interface for predictions and SHAP explanations.
 
 - **scripts/train.py**
-  CLI training with MLflow logging.
+  CLI training/orchestration with MLflow tracking, optional hyperparameter search, model registration and champion promotion.
+
+- **scripts/benchmark.py**
+  CLI model comparison on a shared split.
+
+- **scripts/eda.py**
+  CLI descriptive analysis that exports summary tables and figures.
 
 - **scripts/infer.py**
   CLI batch inference on CSVs.
@@ -118,9 +124,9 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
   - KNN mixed-type imputation pipeline
   - econometric comparison helpers (OLS / random effects)
 - `src/colombia_tourism/interpretation` SHAP, PDP, permutation importance.
-- `src/colombia_tourism/api` FastAPI service.
-- `src/colombia_tourism/inference.py` model loading + feature alignment.
-- `src/colombia_tourism/mlflow_utils.py` experiment tracking + dataset logging.
+- `src/colombia_tourism/api` professional FastAPI service with versioned endpoints, serving schemas and a dedicated prediction service layer.
+- `src/colombia_tourism/inference.py` model resolution, MLflow registry support, metadata loading and feature alignment.
+- `src/colombia_tourism/mlflow_utils.py` MLflow orchestration wrapper for training, tuning, version registration and champion alias promotion.
 
 ---
 
@@ -129,42 +135,99 @@ Our findings highlight spatial extent (urban/rural/water areas), economic capaci
 1. Install dependencies: `pip install -r requirements.txt`
 2. (Optional, for full preprocessing + Sentinel-2 + kriging + econometrics) `pip install -r requirements-geospatial.txt`
 3. Add sources to path: `export PYTHONPATH=src`
+4. (Recommended for registry/API workflows) set `MLFLOW_TRACKING_URI`
+
+Example:
+- `export PYTHONPATH=src`
+- `export MLFLOW_TRACKING_URI=file:./mlruns`
+- `export CTF_REGISTERED_MODEL_NAME=colombia-tourism-forecasting`
+- `export CTF_MODEL_ALIAS=champion`
 
 ---
 
 ## CLI Workflows
 
-### Train + Track (MLflow)
-1. `python scripts/train.py --model xgboost`
-2. `python scripts/train.py --model lightgbm --poly-degree 2`
-3. `python scripts/train.py --model catboost --pca-components 10`
+### Train + Register (MLflow)
+1. `python scripts/train.py --model xgboost --registered-model-name colombia-tourism-forecasting`
+2. `python scripts/train.py --model xgboost --tune --n-iter 50 --registered-model-name colombia-tourism-forecasting`
+3. `python scripts/train.py --candidate-models xgboost random_forest ridge --registered-model-name colombia-tourism-forecasting`
+4. `python scripts/train.py --model xgboost --model-params '{"preset":"notebook_best"}' --registered-model-name colombia-tourism-forecasting`
 
-This logs:
-- Model artifacts
-- Metrics (R2, MAE, MSE, RMSE, CV)
-- Feature list + target name
-- Optional data sample (default enabled)
+The MLflow wrapper now handles:
+- Run-level metrics and params
+- Optional hyperparameter search
+- Dataset snapshot + fingerprint
+- Feature list, target name and serving metadata
+- Model registration in MLflow Model Registry
+- Promotion of the best version to the `champion` alias
 
 ### Inference (batch)
 1. `python scripts/infer.py --model-uri runs:/<RUN_ID>/model --input data.csv --output preds.csv`
-2. `python scripts/infer.py --model-uri path/to/model.joblib --input data.csv --output preds.csv --target "Nmero Extranjeros"`
+2. `python scripts/infer.py --model-uri models:/colombia-tourism-forecasting@champion --input data.csv --output preds.csv`
+3. `python scripts/infer.py --model-uri path/to/model.joblib --input data.csv --output preds.csv --target "Nmero Extranjeros"`
 
 ### Interpretation (SHAP)
 1. `python scripts/interpret.py --model-uri runs:/<RUN_ID>/model --input data.csv --output shap_summary.csv`
-2. `python scripts/interpret.py --model-uri runs:/<RUN_ID>/model --input data.csv --output shap_summary.csv --plot-dir outputs/shap`
+2. `python scripts/interpret.py --model-uri models:/colombia-tourism-forecasting@champion --input data.csv --output shap_summary.csv --plot-dir outputs/shap`
+
+### EDA
+1. `python scripts/eda.py --output-dir outputs/eda`
+
+### Benchmark
+1. `python scripts/benchmark.py --engineer-features --models linear ridge random_forest xgboost`
 
 ---
 
 ## API
 
 Run:
+- `export CTF_REGISTERED_MODEL_NAME=colombia-tourism-forecasting`
+- `export CTF_MODEL_ALIAS=champion`
 - `uvicorn colombia_tourism.api.server:app --host 0.0.0.0 --port 8000`
 
 Endpoints:
-- `GET /health`
-- `POST /predict` (JSON records)
-- `POST /predict-file` (CSV upload)
-- `POST /explain` (SHAP summary)
+- `GET /health/live`
+- `GET /health/ready`
+- `GET /api/v1/model`
+- `GET /api/v1/features`
+- `GET /api/v1/models/registered`
+- `POST /api/v1/predict`
+- `POST /api/v1/predict/single`
+- `POST /api/v1/predict/file`
+- `POST /api/v1/explain`
+
+Default serving behavior:
+- The API resolves the default model from MLflow Registry using `CTF_REGISTERED_MODEL_NAME` + `CTF_MODEL_ALIAS`
+- If needed, requests can still override the model with an explicit `model_uri`
+- Feature names and target metadata are loaded from MLflow artifacts so requests can be aligned consistently
+
+Example prediction payload:
+
+```json
+{
+  "records": [
+    {
+      "Ciudad": "medellin",
+      "Temperatura": 24.5,
+      "Pib Ponderado": 1500.0,
+      "Inflacion": 8.3,
+      "Eventos": 3,
+      "Area Urbana": 120.0,
+      "Area Rural": 80.0,
+      "Area Agua": 4.0,
+      "N Camas": 25000
+    }
+  ],
+  "model": {
+    "registered_model_name": "colombia-tourism-forecasting",
+    "model_alias": "champion"
+  },
+  "options": {
+    "strict_features": false,
+    "fill_missing_value": 0.0
+  }
+}
+```
 
 ---
 
@@ -186,11 +249,18 @@ The app lets you:
 Set tracking URI (local or remote):
 - `export MLFLOW_TRACKING_URI=file:./mlruns`
 
-The training CLI logs:
-- Full model pipeline
-- Feature list and target name
-- Dataset sample + fingerprint (for reproducibility)
-- Metrics and CV scores
+Recommended registry variables:
+- `export CTF_REGISTERED_MODEL_NAME=colombia-tourism-forecasting`
+- `export CTF_MODEL_ALIAS=champion`
+
+The training wrapper logs:
+- Full production pipeline
+- Feature list, target name and model metadata
+- Dataset sample + fingerprint
+- Train/test/CV metrics
+- Optional tuning summary
+- Registered model versions for deployment
+- Champion alias promotion for the best model
 
 ---
 
